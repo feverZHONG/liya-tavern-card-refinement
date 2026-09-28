@@ -2,10 +2,10 @@
 # -*- coding: utf-8 -*-
 """槽位归位——把卡的内容按酒馆官方字段定义各就各位。
 
-问题（2026-09-26 阁下实操指出）：内容全挤在 description（charDescription）一个槽，
+问题（2026-09-26 实操指出）：内容全挤在 description（charDescription）一个槽，
 charPersonality / scenario / mes_example 三个槽空着。
 
-依据：酒馆编辑界面各格官方说明（阁下提供两份《酒馆笔记》）
+依据：酒馆编辑界面各格官方说明（用户提供两份《酒馆笔记》）
     角色描述     = 角色的身体和精神特征
     角色设定摘要 = 角色设定的简要描述
     情景         = 交互的情况和背景
@@ -21,7 +21,7 @@ ST 注入顺序（Chat Completion，源码 public/scripts/openai.js 1201-1209）
     角色设定摘要 ← PList 的 Setting 行（去 PList 语法壳，仅换分隔符）
     情景         ← 描述框顶部的 [Scenario: …] 值
     对话示例     ← 描述框里的 <START> 示例块（ST 解析成 user/assistant 真对话轮次）
-    角色备注     ← **保持原样**（PList 留在深度注入位；2026-09-26 阁下定：备注不空）
+    角色备注     ← **保持原样**（PList 留在深度注入位；2026-09-26 定案：备注不空）
 
 用法:
     python3 slot_realign.py <卡.json> [...]                    # 预览（默认只读）
@@ -136,7 +136,7 @@ def realign(card: dict, version: str | None = None, notes: str | None = None) ->
             data["personality"] = "／".join(items)
             changes.append(f"PList Setting 行 → 角色设定摘要（{len(items)} 条，仅换分隔符）")
 
-    # E) 角色备注保持原样（PList 留在深度注入位）——2026-09-26 阁下定：备注不空
+    # E) 角色备注保持原样（PList 留在深度注入位）——2026-09-26 定案：备注不空
 
     # F) 顶层双份同步
     for f in SYNC_FIELDS:

@@ -23,7 +23,7 @@ tier: T2  # 随 tavern-card-refinement 主 skill
 - `tavern embed <卡> <立绘> <出>｜--all [--avatar-dir 目录]` — PNG 嵌卡（单张／批量）。批量按**卡名＝立绘文件名**配对，立绘目录取库配置 `avatar_dir`；**嵌完必跑 `scripts/verify_embedded_card.py <卡.png>`**（结构／CRC／`tEXt:chara` chunk／与同名 `.json` 逐字节比对）——工具报 ✅ 不等于卡能读；**卡改过忘了重嵌，PNG 里躺的还是旧卡，只有逐字节比对抓得到**
 - `tavern verify [--all] [--fix]` — 交付前一把过（validate --deep ＋ 精修断言 ＋ **PNG 同步**）。PNG 同步这节**调 `scripts/verify_embedded_card.py`**，两边只有这一份实现——**别在 CLI 里另写一份比对逻辑**（2026-09-26 曾出现两份重叠实现，已收口：脚本当引擎、CLI 调它）。
   `scripts/verify_embedded_card.py <卡.png...> [--json 卡.json]` 也可单独跑：三把尺「PNG 结构 → chara chunk 恰一个 → 与同名 .json 逐字节一致」，退出码 0/1/2。
-  **PNG 同步这项专治「改了卡忘了重嵌」**：PNG 里嵌的卡与本地 JSON 不一致就 FAIL（exit 1）。**卡是手写脚本改的、PNG 要手动 embed——两者之间原本没有任何比对**，改完就旧在盘上，实测栽过（被阁下点出）。
+  **PNG 同步这项专治「改了卡忘了重嵌」**：PNG 里嵌的卡与本地 JSON 不一致就 FAIL（exit 1）。**卡是手写脚本改的、PNG 要手动 embed——两者之间原本没有任何比对**，改完就旧在盘上，实测栽过（被点出）。
   `--fix` 查出后顺手重嵌并复验。**纪律：动过卡的 JSON，交付/发群前必须跑一次 `tavern verify --fix`**，别靠记性。
 - `bin/wb {ls,check,keys,sim,new,selftest,unfilter}` — 世界书机制：台账 / 触发体检 / 关键词矩阵 / 触发模拟（`sim` 把「以为会触发」变成「实际会不会」）/ 生成独立书（旧写法 `tavern wb …` 仍可，转发）
 
@@ -38,7 +38,7 @@ tier: T2  # 随 tavern-card-refinement 主 skill
 - **一张卡只能自动带一本书**（`data.extensions.world` 是单值）：世界层与关系层要分层维护时，靠**清单分文件、生成时合并**（`wb new 世界清单.json 关系清单.json --out 共用书.json`），卡上那个字段一个字不用改；想挂两本＝每张卡的用户在酒馆里手动开第二本，必漏。生成与接卡细节见 `sillytavern-worldbook`。
 - **不是每本书都该接卡**：剧透／私密层（真相级设定：记忆清洗、角色本体、反派黑化线）**单独一本、不写 `data.extensions.world`** → 不随卡分发、不自动加载；「给谁听」交给条目级 `characterFilter.names`（名单＝卡文件名去扩展名），加载则由使用者在 WI 面板把书加进 Global。批量接卡命令（`tavern world --all --set …`）**永远不许带上它**。验收口径：知情卡说触发句命中且只命中该条，**非知情卡说同一句必须 0 token**（`filtered`）。
 - **生成／批量命令打印的提示行不是动作**：`wb new` 生成后会打「N 张卡写：`extensions.world = '<书名>'`」——那只是提示你怎么接，别当成已经接了；每次生成完回读卡目录确认没被动（`git status -- <卡目录>` 应为空），做「本就不该接卡」的剧透书时尤其要核。
-- **开一层新世界书（新分层）的放行口**：计划书（机制口径／order 段／条目骨架 ＋ **知情名单或归属名单**）→ 阁下核名单 → **小样 2 条 ＋ `wb sim` 正反实测** → 铺满。名单凡档案没点名的标「推定」请阁下点头，**不替阁下编知情范围**；查不到料的条目挂「待定」，不拿设想填。
+- **开一层新世界书（新分层）的放行口**：计划书（机制口径／order 段／条目骨架 ＋ **知情名单或归属名单**）→ 用户核名单 → **小样 2 条 ＋ `wb sim` 正反实测** → 铺满。名单凡档案没点名的标「推定」请用户点头，**不替用户编知情范围**；查不到料的条目挂「待定」，不拿设想填。
 
 ### 双版合并（同一角色留了 V2+V3 两张）
 
