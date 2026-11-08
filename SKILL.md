@@ -1,7 +1,7 @@
 ---
 name: tavern-card-refinement
 tier: T2  # T分级: T2=直接做 / T1=先请示 / T0=一律拒
-description: SillyTavern 角色卡全流程与台账——7 字段精修、素材层、可用性验收（演卡+样本实测+双卡同场）、PNG 嵌卡与发布命名。触发：精修/批量改卡、验收卡、发卡到群、双卡同场。
+description: SillyTavern 角色卡全流程与台账——7 字段精修、可用性验收、PNG 嵌卡。触发：精修卡、验收卡、发卡。
 ---
 
 # 酒馆角色卡 · 精修（单卡/批量）
@@ -46,11 +46,31 @@ description: SillyTavern 角色卡全流程与台账——7 字段精修、素�
 
 ## 槽位归位
 
-见 `references/slot-mechanics.md` —— 各格按酒馆官方字段定义各就各位（**机制 ＋ 操作**一档全包：注入顺序/预算门 + 逐格怎么搬）。
+见 `slot-mechanics.md` —— 各格按酒馆官方字段定义各就各位（**机制 ＋ 操作**一档全包：注入顺序/预算门 + 逐格怎么搬）。
 
 ## 批量改动
 
 见 `references/batch-cli.md` —— 先用 `tavern` CLI，别手改 JSON。
+
+## 批量成品化（一库多张卡一次铺开：归位 → 收敛 → 嵌图）
+
+一张卡从「精修完」到「能发群」还有三步，整库铺开按这个顺序走：
+
+0. **先确认是哪个库、哪一批**：本机有多套并列卡库（`workspace/tavern-cards` 双生线／`workspace/tavern-mimikko` 兽耳线），CLI 靠 `TAVERN_CARDS_CONFIG` 环境变量切库。用户只说「角色卡」时，先对卡库台账确认是哪一批——手上最近动过的那批不一定是主任务；把兽耳两张当全部、把双生 16 张理解成「以后再说」，会被用户一句「主要任务在某某」拉回来。
+
+1. **样卡先行，两件事一次定**——挑一张**有代表性的**（恒定 token 中位或结构最复杂的那张）走完整条链，把**成卡 PNG ＋ 底图尺寸两版**一起交给用户点头：
+   `slot_realign.py <卡> --fix --version <新号> --notes '…'` → `trim_depth_dup.py <卡> --keep-plist Personality --drop-genre-line --fix` → `tavern embed` → `tavern verify`。
+   批量前必过这一关：卡图尺寸/裁切属于格式决策，用户口径是「先拿小样确认好再谈批量」，尺寸没点头就铺开＝几十张一起返工。
+2. **落计划前先拿实测数字**——对整库跑 `slot_realign.py <卡...>`（默认只预览不写回），逐张记 description 字符变化，再 `tavern stats --all` 记恒定 token；计划书里写区间（哪张最轻/最重），别写「大约会降」。
+3. **顺序不能反**：归位（复制进各专槽）→ 收敛（备注只留 Personality、描述去 `[Genre:]`）→ 嵌图 → verify。先收敛后归位＝把还没搬走的备注内容删掉。
+4. **每张都 verify 一次**：`tavern verify <卡> --fix` 顺手重嵌，别攒到最后——攒着的中间态 PNG 全是旧卡。
+5. **`verify` 全过 ≠ 已成品**：整库没 PNG 时它打「没有 PNG 成品，跳过」后照样报 ✅——报「进度」前先数文件（`ls *.png | wc -l`），别拿 verify 当成品清单。
+6. **发布范围以用户明说的为准**：只说「发卡」就只发卡，不带世界书。「书与卡要一起给」是分发口径，不是授权。
+7. **卡图与卡文是两份东西**：换立绘系列（公式服→私服之类）后，`[body= …]` 外观标签必须按 `skins/<系列><角色>.md` 重写——不然图里是私服、文字写公式服，玩家一眼看出对不上。取图与命名映射见 `references/material-prep.md`「卡图／立绘」。
+
+## 内容查漏补缺（结构修完后的文字层）
+
+见 `references/content-audit.md` —— 素材（personas／curated／角色设定档／skin 档）⇄ 卡文的覆盖审计：四分类清单、官方与考据分层、每张 ≤150 token、按槽位落点、批量委派口径。**范围是卡 ＋ 世界书**（世界层对 `setting/` 素材、关系层按接收卡做覆盖矩阵），不是只查卡。触发：用户说「文字需要查漏补缺」「内容不全」「补设定」「世界书这茬」。
 
 ## 交付前的可用性验收（不装酒馆也能量出来）
 
@@ -63,13 +83,27 @@ description: SillyTavern 角色卡全流程与台账——7 字段精修、素�
 3. 跑 `sillytavern-cards/scripts/validate_tavern_card.py <卡>.json --deep` → ✅ V2 + 无 ⚠️ warning，exit=0
 4. git diff 确认改动真实落地（脚本打印 ✅ 不等于文件真改了）
 
+## 分发形态：共用书 vs 卡内嵌（2026-10-20 定）
+
+酒馆读 `data.extensions.world`（`public/scripts/world-info.js:1127`），但它只认**本机已存在的同名世界书**：世界书导入后的名字＝文件名去扩展名，文件名一改（比如加日期）绑定就断。且卡内书 `importEmbeddedWorldInfo` 会**一键导入并自动把角色绑到那本书**（`world-info.js:5612-5650`）。
+
+**卡内书转换不保留 `characterFilter`**（`convertCharacterBook`，`world-info.js:5498-5560`）——整本共用书塞进每张卡会让所有关系条对每张卡全量命中。所以必须**按卡切片**：世界层全给＋只给该卡的关系条＋原有卡专属条。
+
+```bash
+tavern pack --all --book <共用书>.json [--prefix twinvision-cafe] [--dry] [--no-png]
+```
+
+- 写 `data.character_book`（name＝`<prefix>-<卡名>`，extensions.world 同步指过去）并重嵌 PNG；幂等，书更新后重跑一遍即可。
+- **分发就用它**：一张卡＝一个完整角色，导入后 ST 会问「要不要导入卡内世界书」，点一下自动绑定；不必让玩家手动导书、也不必对齐文件名。
+- 共用书仍是维护源（`workspace/worldbook/`），改完 `wb new` 再 `tavern pack`。
+
 ## 批次台账
 
 **本机卡库的进度**（哪些精修过、版本、token 实测数）在私档：`workspace/records/tavern-card-refinement/台账.md`，实时状态看卡库 `workspace/tavern-cards/INDEX.md`。
 
 ## 踩坑
 
-见 `references/pitfalls.md`（精修操作坑）；机制层的坑见 `references/refinement-notes.md`。
+见 `references/pitfalls.md`（精修操作坑）；机制层的坑见 `refinement-notes.md`。
 
 ## 引用
 
@@ -80,16 +114,17 @@ description: SillyTavern 角色卡全流程与台账——7 字段精修、素�
 | 精修质量复核脚本（6 类断言+版本/creator_notes 检查） | `scripts/check_refined_card.py` |
 | **槽位归位工具**（示例→mes_example／场景→scenario／性格→personality，默认预览、`--fix` 写回） | `scripts/slot_realign.py` |
 | **备注收敛工具**（归位第二步：描述去 `[Genre:]` 行、备注只留指定类别；幂等可重放） | `scripts/trim_depth_dup.py` |
-| **槽位机制**（注入顺序／mes_example 解析成对话轮次／预算门／恒定 vs 非永久——改槽位前必读） | `references/slot-mechanics.md` |
+| **槽位机制**（注入顺序／mes_example 解析成对话轮次／预算门／恒定 vs 非永久——改槽位前必读） | `slot-mechanics.md` |
 | 两卡逐字段比对（V2/V3 双版、改卡前后；CRLF 与类型漂移分列） | `scripts/diff_cards.py` |
 | 嵌卡 PNG 复验（结构 · CRC · chara chunk 恰一个 · 与同名卡逐字节比对） | `scripts/verify_embedded_card.py` |
 | 台词原句出处速查（**私档，不在本仓**） | `workspace/records/tavern-card-refinement/台词原句出处速查.md` |
-| 机制吃透笔记（精修踩坑：mes_example 复读/双换行/括号/顺序，附实测案例） | `references/refinement-notes.md` |
+| 机制吃透笔记（精修踩坑：mes_example 复读/双换行/括号/顺序，附实测案例） | `refinement-notes.md` |
 | **世界书机制主档**（调用链五层/判定链/匹配/扫描源/位置/预算/字段——写调共用书、动卡内书条目前必读） | `sillytavern-worldbook/references/12-worldbook-mechanics.md` |
 | **机制附档**（递归/包含组·outlet·向量化/角色过滤器/扫描状态机·时间效果/版本复核） | `sillytavern-worldbook/references/12b-mechanics-advanced.md` |
 | **条目设计规范**（靠什么进·放哪·要不要恒在场／拆分与减法／关系层 A 卡内书·B 独立关系书架构） | `sillytavern-worldbook/references/13-entry-design.md` |
 | V2 格式规格/工具链/完整写卡方法论/validate 脚本 | `sillytavern-cards` skill（公开仓库） |
 | 素材挖掘（一个角色的料源清单 → 进卡位置） | 素材仓的 `tavern-card-material-mining` 档 |
+| **内容查漏补缺**（素材⇄卡文覆盖审计：四分类清单／官方与考据分层／≤150 token／按槽落点） | `references/content-audit.md` |
 
 ## 生成初稿 / 发布
 
@@ -109,4 +144,4 @@ python3 skills/sillytavern-cards/scripts/make_tavern_card.py <角色名> --src <
 
 ## 拆分记录
 
-- **2026-09-28 拆薄**：SKILL.md 296 行 →（11.3KB）。素材层 → `references/material-prep.md`；槽位归位 → 并入既有 `references/slot-mechanics.md`（机制与操作合档）；批量改动 → `references/batch-cli.md`；可用性验收 → `references/usability-acceptance.md`；踩坑 → `references/pitfalls.md`。**搬运逐字、一条未删**。「槽位归位」「交付前的可用性验收」两个节名被 `sillytavern-cards` 按名引用，档内节名原样保留并已同步外部指向。
+- **2026-09-28 拆薄**：SKILL.md 296 行 →（11.3KB）。素材层 → `references/material-prep.md`；槽位归位 → 并入既有 `slot-mechanics.md`（机制与操作合档）；批量改动 → `references/batch-cli.md`；可用性验收 → `references/usability-acceptance.md`；踩坑 → `references/pitfalls.md`。**搬运逐字、一条未删**。「槽位归位」「交付前的可用性验收」两个节名被 `sillytavern-cards` 按名引用，档内节名原样保留并已同步外部指向。
