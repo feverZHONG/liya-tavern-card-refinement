@@ -14,6 +14,17 @@ description: SillyTavern 角色卡全流程与台账——7 字段精修、可�
 
 精修角色卡 / 批量化改卡 / 「按范例完成精修」 / 查哪张卡还没精修 / 把基础版卡升到 v0.2
 
+## 设计前提：三层与「能力层」
+
+角色 = **身份**（是谁／关系／过去）× **能力**（会什么／按什么流程做）× **声音**（怎么说／怎么别扭）。字段落点：身份 → description／first_mes／personality 设定段；声音 → system_prompt／post_history／mes_example；**能力层目前几乎全空——这就是卡只能演、不能干活的原因**。
+
+- **skill 只灌能力层。** 技能包别写进性格段或 system_prompt 的硬规则里——规则一多声音先被压掉（人设文件被规则喂胖后说话就变正常，同一机制）。
+- **酒馆没有 skill 机制，只有世界书**：用条目模拟按需加载，一条一件事，内容＝触发词＋输入输出流程＋判据，**一个字性格都不写**；关键词/正则命中靠人配，条目要短、触发词要准。
+- **真 skill（语义命中＋可执行）只在 agent 型系统里**（本机、专家模式类）；同一角色在酒馆里「会聊」，挂进 agent 才「会做」。
+- 现成先例：`dialogue-system-builder` 的台词系统＝角色 × 触发维度 × 台词库，已是能力层的引擎化；做新包照它的结构。
+- 最小可验形态：一张卡挂一个技能包（例：触发词「剪辑／卡点／调色／导出」，内容「先问素材规格 → 给两个方案 → 说代价」），聊到才动。
+- **做成 agent 角色包**（本体直接可用的形态：SKILL.md ＋ `references/01-身份·02-声音·03-提示词·04-边界`，生成器 `skills/characters/_tools/gen_pack.py`）→ 见 `references/character-pack.md`：选角色先查撞名、叠层风险五条、包要写薄。
+
 ## 前置：确认范例与素材
 
 1. **先定一张范例卡**——本机取卡库台账里标着 v0.2 成品的那张（`workspace/tavern-cards/INDEX.md`）。要照它对齐的是三处：
@@ -46,7 +57,7 @@ description: SillyTavern 角色卡全流程与台账——7 字段精修、可�
 
 ## 槽位归位
 
-见 `slot-mechanics.md` —— 各格按酒馆官方字段定义各就各位（**机制 ＋ 操作**一档全包：注入顺序/预算门 + 逐格怎么搬）。
+见 `references/slot-mechanics.md` —— 各格按酒馆官方字段定义各就各位（**机制 ＋ 操作**一档全包：注入顺序/预算门 + 逐格怎么搬）。
 
 ## 批量改动
 
@@ -63,7 +74,7 @@ description: SillyTavern 角色卡全流程与台账——7 字段精修、可�
    批量前必过这一关：卡图尺寸/裁切属于格式决策，用户口径是「先拿小样确认好再谈批量」，尺寸没点头就铺开＝几十张一起返工。
 2. **落计划前先拿实测数字**——对整库跑 `slot_realign.py <卡...>`（默认只预览不写回），逐张记 description 字符变化，再 `tavern stats --all` 记恒定 token；计划书里写区间（哪张最轻/最重），别写「大约会降」。
 3. **顺序不能反**：归位（复制进各专槽）→ 收敛（备注只留 Personality、描述去 `[Genre:]`）→ 嵌图 → verify。先收敛后归位＝把还没搬走的备注内容删掉。
-4. **每张都 verify 一次**：`tavern verify <卡> --fix` 顺手重嵌，别攒到最后——攒着的中间态 PNG 全是旧卡。
+4. **每张都 verify 一次**：`tavern verify <卡> --fix` 顺手重嵌，别攒到最后——攒着的中间态 PNG 全是旧卡。**注意 `--fix` 是整库重嵌**（不是只修点名那张），单张改卡也会顺手重写全部 PNG：幂等、内容没变的不受影响，但汇报时要说清，别让人以为动了十几张卡。
 5. **`verify` 全过 ≠ 已成品**：整库没 PNG 时它打「没有 PNG 成品，跳过」后照样报 ✅——报「进度」前先数文件（`ls *.png | wc -l`），别拿 verify 当成品清单。
 6. **发布范围以用户明说的为准**：只说「发卡」就只发卡，不带世界书。「书与卡要一起给」是分发口径，不是授权。
 7. **卡图与卡文是两份东西**：换立绘系列（公式服→私服之类）后，`[body= …]` 外观标签必须按 `skins/<系列><角色>.md` 重写——不然图里是私服、文字写公式服，玩家一眼看出对不上。取图与命名映射见 `references/material-prep.md`「卡图／立绘」。
@@ -80,7 +91,7 @@ description: SillyTavern 角色卡全流程与台账——7 字段精修、可�
 
 1. 精修脚本：`json.load` 读卡 → 改 data 字段 + 顶层同名字段同步（description/first_mes/system_prompt/post_history_instructions）→ `json.dump(ensure_ascii=False, indent=2)` 写回。**同步不是可选项**：只改 `data` 那份、顶层留着旧的，`tavern verify` 直接判 `FAIL 顶层/数据不同步: <字段>`——实测栽过；改完两个 prompt 立刻回写顶层再 verify。
 2. 断言 6 类（`scripts/check_refined_card.py <卡1>.json [卡2.json ...]`，接受多文件）：① first_mes 以 `*` 开头/无空行/无 `*你…*`/非模板；② 恰 3 组 `<START>`、场景块未改、user/char 不同句（**`description` 与 `mes_example` 两处都扫**——归位后示例在 mes_example）；③ PList 类别**相对次序** body→Setting→Personality（**允许缺类**——备注收敛后只剩 `Personality` 是合法形状，顺序对但缺类不该判 FAIL）、无施工注释；④ Setting 无台词；⑤ Personality 标签 ≤16 字；⑥ 两个 prompt 以 `{{original}}\n` 开头、无 ✅❌——另含版本（白名单 `0.2-0.9`）+ creator_notes「精修版 v0.x」标记检查
-3. 跑 `sillytavern-cards/scripts/validate_tavern_card.py <卡>.json --deep` → ✅ V2 + 无 ⚠️ warning，exit=0
+3. 跑 `skills/sillytavern-cards/scripts/validate_tavern_card.py <卡>.json --deep` → ✅ V2 + 无 ⚠️ warning，exit=0
 4. git diff 确认改动真实落地（脚本打印 ✅ 不等于文件真改了）
 
 ## 分发形态：共用书 vs 卡内嵌（2026-10-20 定）
@@ -96,6 +107,7 @@ tavern pack --all --book <共用书>.json [--prefix twinvision-cafe] [--dry] [--
 - 写 `data.character_book`（name＝`<prefix>-<卡名>`，extensions.world 同步指过去）并重嵌 PNG；幂等，书更新后重跑一遍即可。
 - **分发就用它**：一张卡＝一个完整角色，导入后 ST 会问「要不要导入卡内世界书」，点一下自动绑定；不必让玩家手动导书、也不必对齐文件名。
 - 共用书仍是维护源（`workspace/worldbook/`），改完 `wb new` 再 `tavern pack`。
+- **`tavern pack` 会保留卡内原有专属条**：旧条目不在新池里就原样留下（算「专属」，`old_entries` 逻辑）——所以手加进 `character_book` 的自定义条目（技能条之类）重跑 pack 不会被冲掉。book description 里那句「勿手改」是旧文案，别被它吓退。
 
 ## 批次台账
 
@@ -103,10 +115,9 @@ tavern pack --all --book <共用书>.json [--prefix twinvision-cafe] [--dry] [--
 
 ## 踩坑
 
-见 `references/pitfalls.md`（精修操作坑）；机制层的坑见 `refinement-notes.md`。
+见 `references/pitfalls.md`（精修操作坑）；机制层的坑见 `references/refinement-notes.md`。
 
 ## 引用
-
 | 要查什么 | 打开 |
 |:---------|:-----|
 | CLI 收口（台账/批量/归一化/对齐 v0.2） | `bin/tavern`（`tavern --help`）|
@@ -114,18 +125,8 @@ tavern pack --all --book <共用书>.json [--prefix twinvision-cafe] [--dry] [--
 | 精修质量复核脚本（6 类断言+版本/creator_notes 检查） | `scripts/check_refined_card.py` |
 | **槽位归位工具**（示例→mes_example／场景→scenario／性格→personality，默认预览、`--fix` 写回） | `scripts/slot_realign.py` |
 | **备注收敛工具**（归位第二步：描述去 `[Genre:]` 行、备注只留指定类别；幂等可重放） | `scripts/trim_depth_dup.py` |
-| **槽位机制**（注入顺序／mes_example 解析成对话轮次／预算门／恒定 vs 非永久——改槽位前必读） | `slot-mechanics.md` |
-| 两卡逐字段比对（V2/V3 双版、改卡前后；CRLF 与类型漂移分列） | `scripts/diff_cards.py` |
-| 嵌卡 PNG 复验（结构 · CRC · chara chunk 恰一个 · 与同名卡逐字节比对） | `scripts/verify_embedded_card.py` |
-| 台词原句出处速查（**私档，不在本仓**） | `workspace/records/tavern-card-refinement/台词原句出处速查.md` |
-| 机制吃透笔记（精修踩坑：mes_example 复读/双换行/括号/顺序，附实测案例） | `refinement-notes.md` |
-| **世界书机制主档**（调用链五层/判定链/匹配/扫描源/位置/预算/字段——写调共用书、动卡内书条目前必读） | `sillytavern-worldbook/references/12-worldbook-mechanics.md` |
-| **机制附档**（递归/包含组·outlet·向量化/角色过滤器/扫描状态机·时间效果/版本复核） | `sillytavern-worldbook/references/12b-mechanics-advanced.md` |
-| **条目设计规范**（靠什么进·放哪·要不要恒在场／拆分与减法／关系层 A 卡内书·B 独立关系书架构） | `sillytavern-worldbook/references/13-entry-design.md` |
-| V2 格式规格/工具链/完整写卡方法论/validate 脚本 | `sillytavern-cards` skill（公开仓库） |
-| 素材挖掘（一个角色的料源清单 → 进卡位置） | 素材仓的 `tavern-card-material-mining` 档 |
-| **内容查漏补缺**（素材⇄卡文覆盖审计：四分类清单／官方与考据分层／≤150 token／按槽落点） | `references/content-audit.md` |
 
+> **其余全文见 `references/引用.md`**（整节逐字搬出，含判例、命令与例外）。
 ## 生成初稿 / 发布
 
 ```bash
@@ -144,4 +145,6 @@ python3 skills/sillytavern-cards/scripts/make_tavern_card.py <角色名> --src <
 
 ## 拆分记录
 
-- **2026-09-28 拆薄**：SKILL.md 296 行 →（11.3KB）。素材层 → `references/material-prep.md`；槽位归位 → 并入既有 `slot-mechanics.md`（机制与操作合档）；批量改动 → `references/batch-cli.md`；可用性验收 → `references/usability-acceptance.md`；踩坑 → `references/pitfalls.md`。**搬运逐字、一条未删**。「槽位归位」「交付前的可用性验收」两个节名被 `sillytavern-cards` 按名引用，档内节名原样保留并已同步外部指向。
+- 2026-11-10 二轮（8K 线）：「引用」整节逐字搬 `references/引用.md`；本文 8848 → 7895 字符，守恒 0 缺失。
+
+- **2026-09-28 拆薄**：SKILL.md 296 行 →（11.3KB）。素材层 → `references/material-prep.md`；槽位归位 → 并入既有 `references/slot-mechanics.md`（机制与操作合档）；批量改动 → `references/batch-cli.md`；可用性验收 → `references/usability-acceptance.md`；踩坑 → `references/pitfalls.md`。**搬运逐字、一条未删**。「槽位归位」「交付前的可用性验收」两个节名被 `sillytavern-cards` 按名引用，档内节名原样保留并已同步外部指向。
